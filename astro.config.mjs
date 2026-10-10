@@ -1,13 +1,23 @@
 // @ts-check
 
 import mdx from '@astrojs/mdx';
+import { satteri } from '@astrojs/markdown-satteri';
 import sitemap from '@astrojs/sitemap';
 import { defineConfig, fontProviders } from 'astro/config';
+import { satteriKatex } from './plugins/satteri-katex.mjs';
 
 // https://astro.build/config
 export default defineConfig({
-	site: 'https://example.com',
+	site: 'https://hylu.top',
 	integrations: [mdx(), sitemap()],
+	markdown: {
+		// satteri 是 Astro 7 的默认 Markdown 引擎。
+		// features.math 只开启数学「解析」，渲染由 satteriKatex 插件负责。
+		processor: satteri({
+			features: { math: true },
+			hastPlugins: [satteriKatex],
+		}),
+	},
 	fonts: [
 		{
 			provider: fontProviders.local(),
