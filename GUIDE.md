@@ -512,103 +512,80 @@ npm run astro -- dev stop           # 停止
 
 ---
 
-## 七、部署到 GitHub Pages
+## 七、部署到 Cloudflare Pages
 
-### 现状（部署已配置完成）
+### 现状
 
-- 远程仓库：`git@github.com:yyyns/yyyns.github.io.git` —— GitHub Pages 的**用户站点**仓库。
-- 分支：
-  - `master` ← Astro 工程源码（**源码，不是构建产物**）
-  - `main` ← 旧版纯 HTML 站点（仅 `index.html` + `CNAME`），已废弃不用
-- 自定义域名：`hylu.top`
+- 托管平台：**Cloudflare Pages**，自定义域名 `hylu.top`
+- 远程仓库：`git@github.com:yyyns/yyyns.github.io.git`
+- 分支：`master` = Astro 工程源码（Cloudflare 监听此分支，推送即触发构建）
+- 构建方式：Cloudflare 自己跑 `npm run build`，产物在 `dist/`，纯静态直接托管（**不需要 adapter**）
 
-**为什么不能直接把源码推上去就完事？** GitHub Pages 自己不会构建 Astro，它只能托管现成的 HTML。
-所以本项目用「源码分支 + GitHub Actions 构建」模式：Actions 跑 `npm run build` 生成 `dist/`，
-再把产物发布到 Pages。源码分支本身不影响托管内容。
+### 面板里要核对的构建配置
 
-以下三项**已经配置好**，无需重复操作：
+| 项目 | 值 |
+| --- | --- |
+| Framework preset | Astro |
+| Build command | `npm run build` |
+| Build output directory | `dist` |
+| Root directory | `/`（留空） |
 
-| 项目 | 位置 | 内容 |
-| --- | --- | --- |
-| 部署工作流 | `.github/workflows/deploy.yml` | `withastro/action@v6` 构建 + `actions/deploy-pages@v5` 发布 |
-| 自定义域名 | `public/CNAME` | `hylu.top`，构建时自动拷贝到 `dist/CNAME` |
-| 站点地址 | `astro.config.mjs` | `site: 'https://hylu.top'` |
+**Node 版本**：Astro 7 要求 **Node ≥ 22.12**，而 Cloudflare 构建镜像的默认版本偏旧。
+仓库里已放 `.nvmrc`（内容 `22`），Cloudflare 会读取它；
+也可以在面板的 Environment variables 里设 `NODE_VERSION = 22`。
 
-### ⚠️ 仍需你手动做的一步
+### ⚠️ 本项目踩过的坑：Cloudflare 的 autoconfig 会自动注入适配器
 
-**在 GitHub 仓库 Settings → Pages → Build and deployment → Source 选择 "GitHub Actions"**
-（不要选 "Deploy from a branch"）。这一步无法用 git 完成，必须点一次网页。
+Cloudflare 会自作主张往 Astro 项目里塞 `@astrojs/cloudflare` 适配器和 `wrangler.jsonc`，
+**哪怕你是纯静态站、根本不需要 adapter**。这是它的已知行为，不是你配置错了。
 
-若自定义域名未生效，还需：Settings → Pages → Custom domain 填 `hylu.top`，
-并在域名服务商处把 DNS 指向 GitHub Pages（A 记录指向 4 个官方 IP，或 CNAME 指向 `yyyns.github.io`）。
+后果有两层：
 
-### 工作流内容（已就位，供参考）
+1. 注入的适配器里有一句写死的 `import 'prismjs'`，而 `prismjs` 在 Astro 7 里只是
+   `@astrojs/prism` 的**可选 peer 依赖**（高亮已由 satteri/Shiki 接管），默认不装
+   → 报 `Cannot find package 'prismjs'`，整个 config 加载失败。
+2. 更严重时，adapter 会把产物从扁平的 `dist/` 改成 `dist/client/` + `dist/server/`，
+   导致站点大面积 404 —— **而构建日志还显示成功**，极难排查。
 
-```yaml
-name: Deploy to GitHub Pages
+**本项目的应对**：`package.json` 里显式声明了 `prismjs` 依赖，让被注入的适配器至少能加载。
 
-on:
-  push:
-    branches: [master]
-  workflow_dispatch:
+**以后再遇到诡异的部署失败，先怀疑 autoconfig**：
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+- 检查仓库里有没有 bot 提的 PR（`cloudflare-workers-and-pages[bot]`）—— **不要 merge**
+- 确认 `astro.config.mjs` 没有被加上 `adapter: cloudflare()` / `output: 'server'`
+- 确认构建输出目录仍是 `dist`（不是 `dist/client`）
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-      - name: Install, build, and upload site
-        uses: withastro/action@v6
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy
-        id: deployment
-        uses: actions/deploy-pages@v5
-```
-
-> 版本号以官方 [withastro/action](https://github.com/withastro/action) README 为准；
-> `withastro/action@v6` 默认用 Node 24，会自动执行 `npm run build` 并把 `dist/` 上传。
-> 网上很多旧教程写的是 `@v3` / `deploy-pages@v4`，已过时。
-
-### 日常发布流程
-
-配好之后，发布就是普通的 git 操作：
+### 部署流程
 
 ```bash
-npm run build          # 可选，本地先确认能构建通过
+npm run build              # 本地先确认能构建通过
 git add -A
 git commit -m "post: 新文章"
-git push origin master
+git push origin master     # Cloudflare 自动构建并部署
 ```
 
-推送后到仓库 **Actions** 标签页看进度，绿色的勾出现后站点即更新。
+推送后到 Cloudflare 控制台 → **Workers & Pages → 你的项目 → Deployments** 看进度。
 
-### 如何确认部署真的生效
+### 如何确认配置正确
 
 ```bash
 npm run build
-cat dist/CNAME                                   # 应为 hylu.top
+ls dist/index.html                                # 必须存在（扁平结构）
 grep -o 'https://[^<"]*' dist/rss.xml | head -3   # 应为 https://hylu.top/...
 grep -o '<link rel="canonical"[^>]*>' dist/index.html
+ls -d dist/client dist/server 2>/dev/null && echo "⚠️ 被适配器重构了"
 ```
 
-这三处都指向 `hylu.top` 才算配置正确（`site` 写错会导致 canonical / sitemap / RSS 全是错的地址，直接影响 SEO）。
+最后一条最关键：`dist/` 下若出现 `client/` 和 `server/`，说明适配器生效了 ——
+要么在面板把输出目录改成 `dist/client`，要么把适配器去掉。
 
-> 💡 **为什么不把 `master` 改成 `main`？** GitHub 仓库的默认分支目前是 `main`（旧的 HTML 站点）。
-> 如果想统一，把默认分支切到 `master`、或把 `master` 重命名成 `main` 并同步改 workflow 里的 `branches`。
-> 不统一也不影响部署，只是别人点进仓库时默认看到的是废弃的旧分支。
+### 关于 `prismjs` 依赖
+
+它是**为了兼容 Cloudflare 注入的适配器**才加的，本项目代码并不直接使用它
+（代码高亮由 satteri/Shiki 负责）。如果哪天 Cloudflare 不再注入适配器，可以移除。
+
+> 💡 原先配置的 GitHub Pages 方案（`.github/workflows/deploy.yml` + `public/CNAME`）**已移除** ——
+> 一个域名只能由一个平台服务，两套并存只会互相打架。
 
 ---
 
@@ -625,6 +602,9 @@ grep -o '<link rel="canonical"[^>]*>' dist/index.html
 | RSS / sitemap 里是 `example.com` | `astro.config.mjs` 的 `site` 没改 |
 | 中文站但 `<html lang="en">` | 见第三节 ⑥，共 3 处 |
 | 部署后样式丢失 | `site` 与实际路径不符；或用了子路径但没配 `base`（用户站点不需要 `base`） |
+| Cloudflare 报 `Cannot find package 'prismjs'` | Cloudflare autoconfig 注入了 `@astrojs/cloudflare` 适配器。已在 `package.json` 声明 `prismjs` 规避；详见第七节 |
+| Cloudflare 构建成功但站点 404 | 产物被适配器重构成 `dist/client/`+`dist/server/`。确认输出目录是 `dist`，并检查有无 bot 提的 autoconfig PR |
+| Cloudflare 报 Node 版本过低 | Astro 7 要求 ≥ 22.12。仓库已放 `.nvmrc`；或在面板设 `NODE_VERSION = 22` |
 
 ---
 
