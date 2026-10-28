@@ -20,22 +20,37 @@ export default defineConfig({
 	},
 	fonts: [
 		{
+			// Latin-only build. CJK characters are not in this file, so the
+			// browser falls back to the next font in the stack (monospace),
+			// which resolves to a system CJK font.
 			provider: fontProviders.local(),
-			name: 'Atkinson',
-			cssVariable: '--font-atkinson',
-			fallbacks: ['sans-serif'],
+			name: 'JetBrains Mono',
+			cssVariable: '--font-jetbrains',
+			fallbacks: ['monospace'],
 			options: {
 				variants: [
 					{
-						src: ['./src/assets/fonts/atkinson-regular.woff'],
+						src: ['./src/assets/fonts/jetbrains-mono-regular.woff2'],
 						weight: 400,
 						style: 'normal',
 						display: 'swap',
 					},
 					{
-						src: ['./src/assets/fonts/atkinson-bold.woff'],
+						src: ['./src/assets/fonts/jetbrains-mono-bold.woff2'],
 						weight: 700,
 						style: 'normal',
+						display: 'swap',
+					},
+					{
+						src: ['./src/assets/fonts/jetbrains-mono-italic.woff2'],
+						weight: 400,
+						style: 'italic',
+						display: 'swap',
+					},
+					{
+						src: ['./src/assets/fonts/jetbrains-mono-bold-italic.woff2'],
+						weight: 700,
+						style: 'italic',
 						display: 'swap',
 					},
 				],

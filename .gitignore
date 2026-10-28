@@ -22,3 +22,13 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
+
+# archives (imported font packages, etc.)
+*.zip
+
+# editor swap files
+*.swp
+
+# AI/agent documentation (kept locally, not part of the published site)
+AGENTS.md
+GUIDE.md

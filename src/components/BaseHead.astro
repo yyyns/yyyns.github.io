@@ -35,7 +35,8 @@ const { title, description, image = FallbackImage } = Astro.props;
 />
 <meta name="generator" content={Astro.generator} />
 
-<Font cssVariable="--font-atkinson" preload />
+<!-- JetBrains Mono is used only by code blocks, so it is not preloaded. -->
+<Font cssVariable="--font-jetbrains" />
 
 <!-- Canonical URL -->
 <link rel="canonical" href={canonicalURL} />
