@@ -31,4 +31,5 @@ pnpm-debug.log*
 
 # AI/agent documentation (kept locally, not part of the published site)
 AGENTS.md
+CLAUDE.md
 GUIDE.md
