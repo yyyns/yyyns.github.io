@@ -469,3 +469,31 @@ ORDER BY instances DESC;
 - assign y = a & b;
 + assign y = a | b;
 ```
+
+# Design notes
+
+A dedicated section for checking how H1 and H2 headings appear in the table of contents.
+
+## Clocking
+
+All sequential logic is clocked from a single source.
+
+## Reset strategy
+
+Reset is asynchronous in assertion and synchronous in deassertion.
+
+## Timing
+
+Every path is constrained, including the ones nobody remembers.
+
+# Verification plan
+
+The verification plan follows the same hierarchy as the design.
+
+## Assertions
+
+Each block owns a small set of properties.
+
+## Coverage
+
+Functional coverage is reviewed every week.

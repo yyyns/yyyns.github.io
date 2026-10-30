@@ -6,9 +6,24 @@ import Footer from '../components/Footer.astro';
 import FormattedDate from '../components/FormattedDate.astro';
 import Header from '../components/Header.astro';
 
-type Props = CollectionEntry<'blog'>['data'];
+interface Heading {
+	depth: number;
+	slug: string;
+	text: string;
+}
 
-const { title, description, pubDate, updatedDate, heroImage } = Astro.props;
+type Props = CollectionEntry<'blog'>['data'] & {
+	/** Heading metadata produced at build time by the Markdown renderer. */
+	headings?: Heading[];
+};
+
+const { title, description, pubDate, updatedDate, heroImage, headings = [] } = Astro.props;
+
+// Only H1 and H2 entries go into the table of contents. The GFM footnote
+// plugin adds a visually hidden "Footnotes" heading, which is not useful here.
+const toc = headings.filter(
+	(h) => (h.depth === 1 || h.depth === 2) && h.slug !== 'footnote-label',
+);
 ---
 
 <html lang="en">
@@ -52,11 +67,86 @@ const { title, description, pubDate, updatedDate, heroImage } = Astro.props;
 			.last-updated-on {
 				font-style: italic;
 			}
+			.toc {
+				position: fixed;
+				top: 5.5rem;
+				/* Sit just left of the centered 1020px cover image instead of
+				   hugging the viewport edge. max() keeps it on screen on
+				   narrower viewports. */
+				left: max(1rem, calc(50% - 510px - 200px - 1.5rem));
+				z-index: 10;
+				box-sizing: border-box;
+				width: 200px;
+				max-height: calc(100vh - 7rem);
+				overflow-y: auto;
+				padding: 0.9rem 1rem;
+				background: #fff;
+				border: 1px solid rgb(var(--gray-light));
+				border-radius: 12px;
+				box-shadow:
+					0 2px 8px rgba(var(--black), 6%),
+					0 8px 24px rgba(var(--gray), 14%);
+				font-size: 0.8rem;
+				line-height: 1.4;
+			}
+			.toc-title {
+				margin: 0 0 0.5rem;
+				font-weight: 700;
+				color: rgb(var(--black));
+			}
+			.toc ul {
+				margin: 0;
+				padding: 0;
+				list-style: none;
+			}
+			.toc li {
+				margin: 0.25rem 0;
+			}
+			.toc li.depth-2 {
+				padding-left: 0.9rem;
+			}
+			.toc a {
+				color: rgb(var(--gray-dark));
+				text-decoration: none;
+			}
+			.toc a:hover {
+				color: var(--accent);
+			}
+			.toc-actions {
+				display: flex;
+				gap: 0.75rem;
+				margin-top: 0.75rem;
+				padding-top: 0.6rem;
+				border-top: 1px solid rgb(var(--gray-light));
+			}
+			@media (max-width: 1180px) {
+				.toc {
+					display: none;
+				}
+			}
 		</style>
 	</head>
 
-	<body>
+	<body id="top">
 		<Header />
+		{
+			toc.length > 0 && (
+				<nav class="toc" aria-label="Table of contents">
+					<p class="toc-title">Contents</p>
+					<ul>
+						{toc.map((h) => (
+							<li class={`depth-${h.depth}`}>
+								<a href={`#${h.slug}`}>{h.text}</a>
+							</li>
+						))}
+					</ul>
+					<div class="toc-actions">
+						<a href="#top">↑ Top</a>
+						<a href="#bottom">↓ Bottom</a>
+					</div>
+				</nav>
+			)
+		}
 		<main>
 			<article>
 				<div class="hero-image">
@@ -82,5 +172,6 @@ const { title, description, pubDate, updatedDate, heroImage } = Astro.props;
 			</article>
 		</main>
 		<Footer />
+		<div id="bottom"></div>
 	</body>
 </html>
